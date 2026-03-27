@@ -8,19 +8,61 @@ Use this command to profile GPU workloads on Intel XPU using unitrace.
 
 ## Setup
 
-Before using, ensure the following:
-1. unitrace is built from https://github.com/intel/pti-gpu (tools/unitrace)
-2. Set `$UNITRACE` to the path of the unitrace binary
-3. If running inside a container, set `$CONTAINER` to the container name (commands will use `docker exec $CONTAINER`)
-4. If running directly on host, leave `$CONTAINER` empty
+Before profiling, Claude should check if unitrace is available and install it if needed.
 
-If unitrace is not yet built, build it:
+### Step 1: Detect environment
+
+- If `$CONTAINER` is set, all commands run via `docker exec $CONTAINER bash -c "..."`
+- Otherwise run directly on host
+- Check if `$UNITRACE` is set; if not, search common locations:
+  - `./pti-gpu/tools/unitrace/build/unitrace`
+  - `$HOME/pti-gpu/tools/unitrace/build/unitrace`
+  - Workspace siblings: `../pti-gpu/tools/unitrace/build/unitrace`
+  - `which unitrace`
+
+### Step 2: Auto-install if not found
+
+If unitrace binary is not found, install it automatically:
+
 ```bash
-# Inside container or on host with oneAPI installed:
-cd pti-gpu/tools/unitrace && mkdir build && cd build
+# 1. Clone pti-gpu (shallow)
+git clone --depth 1 https://github.com/intel/pti-gpu.git
+
+# 2. Build unitrace
+cd pti-gpu/tools/unitrace
+mkdir build && cd build
+
+# If inside a container that can't access GitHub, try setting proxy:
+#   export http_proxy=http://proxy-host:port
+#   export https_proxy=http://proxy-host:port
+# Or pre-clone on host and mount into container.
+
+# Configure — adjust flags as needed:
+#   -DBUILD_WITH_ITT=1  enables oneDNN/CCL/PyTorch profiling (requires ittapi, auto-downloaded)
+#   -DBUILD_WITH_MPI=0  disable MPI if not needed
 cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_WITH_MPI=0 -DBUILD_WITH_ITT=1 ..
+
+# Build
 make -j$(nproc)
-# Binary at: ./unitrace
+
+# Verify
+./unitrace --version
+```
+
+If git clone fails (no network in container), clone on host first and mount/copy:
+```bash
+# On host:
+git clone --depth 1 https://github.com/intel/pti-gpu.git /path/to/pti-gpu
+# Then build inside container where oneAPI is available
+```
+
+After building, set `$UNITRACE` to the binary path for subsequent commands.
+
+### Step 3: Verify
+
+```bash
+$UNITRACE --version        # Should print version
+$UNITRACE --device-list    # Should list available GPUs
 ```
 
 ## User Request
