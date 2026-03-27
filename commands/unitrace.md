@@ -131,6 +131,72 @@ Launch with `--start-paused` for env var control to work.
 | XVE_THREADS_OCCUPANCY_ALL[%] | Thread occupancy | Low = underutilization |
 | Compiled (JIT/AOT) | Compilation mode | JIT ESIMD kernels may have long first-call latency |
 
+## Level 5: Roofline Analysis
+
+Roofline model plots kernel performance (GFLOPS) vs arithmetic intensity (FLOPS/byte) against hardware ceilings.
+
+### Method A: Official roofline.py (PVC only)
+
+Only works if **both** `ComputeBasic` and `VectorEngine138` metric groups are supported:
+```bash
+# One-step: profile + roofline
+python roofline.py --app <application> --device device_configs/<device>.csv --output roofline.html --unitrace $UNITRACE
+
+# Two-step: profile first, then roofline
+$UNITRACE -g ComputeBasic -q --chrome-kernel-logging -o compute.csv <application>
+$UNITRACE -g VectorEngine138 -q --chrome-kernel-logging -o memory.csv <application>
+python roofline.py --compute compute.metrics.*.csv --memory memory.metrics.*.csv --device device_configs/<device>.csv --output roofline.html
+```
+
+**Note:** On BMG (Arc B-series), `VectorEngine138` does not exist. The equivalent `VectorEngineProfile` group is listed but NOT supported for metric query/sampling by the driver. Method B must be used instead.
+
+### Method B: Empirical Roofline (all devices)
+
+When hardware metric groups are limited, use Python timing + theoretical FLOP counts:
+
+```python
+import time, torch
+# Measure kernel execution time
+t0 = time.perf_counter()
+for _ in range(N):
+    kernel_call(...)
+torch.xpu.synchronize()
+ms = (time.perf_counter() - t0) / N * 1000
+
+# Calculate operational intensity
+flops = <theoretical FLOPs for the kernel>  # e.g., 2*M*N*K for GEMM
+bytes_accessed = <input_bytes + output_bytes>
+arithmetic_intensity = flops / bytes_accessed  # FLOP/byte
+achieved_gflops = flops / (ms / 1000) / 1e9
+```
+
+Then compare against device ceilings:
+- **Compute ceiling**: peak GFLOPS for the dtype (FP16 XMX, BF16 XMX, FP32, etc.)
+- **Memory ceiling**: `peak_memory_bw_GB_s * arithmetic_intensity`
+- **Ridge point**: `peak_gflops / peak_memory_bw_GB_s` (FLOP/byte)
+
+If `achieved_gflops` is far below the lower of the two ceilings, there's optimization headroom.
+
+### Device Config Reference
+
+Create device config CSV at `device_configs/<device>.csv`:
+```csv
+PlatformName,"<device_name>"
+FP16_GFLOPS,<fp16_vector_peak>
+FP16_XMX_GFLOPS,<fp16_xmx_peak>
+BF16_XMX_GFLOPS,<bf16_xmx_peak>
+FP32_GFLOPS,<fp32_vector_peak>
+FP64_GFLOPS,<fp64_peak>
+GPU_MEMORY_BW_in_GB_per_sec,<measured_gddr/hbm_bw>
+L3_BW_in_GB_per_sec,<measured_l3_bw>
+```
+
+Measure peak values empirically with large GEMMs (`torch.matmul` on 8192x8192 matrices) and large memory copies.
+
+Known device configs:
+- `PVC_1tile.csv`: Intel Data Center GPU Max (Ponte Vecchio)
+- `BMG_B580.csv`: Intel Arc B580 (Battlemage) — FP16 XMX ~109 TFLOPS, BF16 XMX ~108 TFLOPS, Mem BW ~403 GB/s
+
 ## Known Issues
 
 1. **ESIMD sidecar + `--chrome-kernel-logging`**: unitrace tracing hooks may cause ESIMD kernel profiling to hang indefinitely. Use Level 1 (`-d -v -s`) or Python timing instead.
