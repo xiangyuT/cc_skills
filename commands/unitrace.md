@@ -22,38 +22,56 @@ Before profiling, Claude should check if unitrace is available and install it if
 
 ### Step 2: Auto-install if not found
 
-If unitrace binary is not found, install it automatically:
+Unitrace must be built **inside the container** where Intel oneAPI and GPU drivers are available.
+Reference: https://github.com/intel/pti-gpu/blob/master/tools/unitrace/README.md
+
+**Requirements (should already exist in oneAPI container):**
+- CMake 3.22+
+- C++17 compiler (gcc or icpx)
+- Intel oneAPI Base Toolkit (Level Zero, OpenCL)
+- Python 3.9+
+
+**Build steps (run inside container via `docker exec`):**
 
 ```bash
-# 1. Clone pti-gpu (shallow)
+# If container can't access GitHub, set proxy first:
+# export http_proxy=http://proxy-host:port
+# export https_proxy=http://proxy-host:port
+
+# If workspace is mounted (e.g., /llm/workspace), clone there for persistence:
+cd /llm/workspace  # or any mounted directory
+
+# 1. Clone pti-gpu
 git clone --depth 1 https://github.com/intel/pti-gpu.git
 
-# 2. Build unitrace
+# 2. Fix git safe.directory if host/container uid differ
+git config --global --add safe.directory '*'
+
+# 3. Build unitrace
 cd pti-gpu/tools/unitrace
 mkdir build && cd build
 
-# If inside a container that can't access GitHub, try setting proxy:
-#   export http_proxy=http://proxy-host:port
-#   export https_proxy=http://proxy-host:port
-# Or pre-clone on host and mount into container.
-
-# Configure — adjust flags as needed:
-#   -DBUILD_WITH_ITT=1  enables oneDNN/CCL/PyTorch profiling (requires ittapi, auto-downloaded)
-#   -DBUILD_WITH_MPI=0  disable MPI if not needed
+# Configure:
+#   -DBUILD_WITH_ITT=1   enables oneDNN/oneCCL/PyTorch profiling (ittapi auto-downloaded)
+#   -DBUILD_WITH_MPI=0   disable MPI if not needed
+#   -DBUILD_WITH_XPTI=1  enables SYCL/UR profiling (default on)
 cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_WITH_MPI=0 -DBUILD_WITH_ITT=1 ..
 
-# Build
+# Build (dependencies like level-zero headers, OpenCL headers, ittapi are auto-downloaded)
 make -j$(nproc)
 
-# Verify
+# 4. Verify
 ./unitrace --version
+./unitrace --device-list
 ```
 
-If git clone fails (no network in container), clone on host first and mount/copy:
+**If git clone fails inside container (no network):**
+Clone on host, the mounted workspace makes it available inside:
 ```bash
 # On host:
-git clone --depth 1 https://github.com/intel/pti-gpu.git /path/to/pti-gpu
-# Then build inside container where oneAPI is available
+cd /path/to/mounted/workspace
+git clone --depth 1 https://github.com/intel/pti-gpu.git
+# Then build inside container where the repo is visible
 ```
 
 After building, set `$UNITRACE` to the binary path for subsequent commands.
@@ -61,8 +79,9 @@ After building, set `$UNITRACE` to the binary path for subsequent commands.
 ### Step 3: Verify
 
 ```bash
-$UNITRACE --version        # Should print version
+$UNITRACE --version        # Should print version like "2.3.0 (...)"
 $UNITRACE --device-list    # Should list available GPUs
+$UNITRACE --metric-list    # Optional: check available metric groups
 ```
 
 ## User Request
