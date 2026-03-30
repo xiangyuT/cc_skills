@@ -10,29 +10,45 @@ Run ComfyUI API workflow benchmarks, collect e2e timing, and generate a comparis
 
 $ARGUMENTS
 
+## Configuration
+
+Parse these from `$ARGUMENTS`:
+
+- **Server address**: `--server <host:port>` or `--url <full_url>` (default: `127.0.0.1:8188`)
+  - Examples: `--server 172.16.115.35:8288`, `--server localhost:8188`
+  - Can also be set via env: `$COMFYUI_URL`
+- **Container**: `--container <name>` — run commands inside this container
+- **Workflow files**: positional args or `--workflow <path>`
+- **Runs**: `--runs <N>` (default: 3)
+- **Warmup**: `--warmup <N>` (default: 1)
+- **Profile mode**: `--profile` — collect per-step timing
+
 ## Setup
 
 ### Step 1: Detect environment
 
-- ComfyUI should be running and accessible via API (default: `http://127.0.0.1:8188`)
-- If inside a container, set `$CONTAINER` to the container name
-- If ComfyUI is running on a different host/port, set `$COMFYUI_URL`
-- Workflow JSON files should be in the workspace or provided by user
+Determine the ComfyUI server address:
+1. If `--server` is provided in `$ARGUMENTS`, use it
+2. Else if `$COMFYUI_URL` env var is set, use it
+3. Else try `127.0.0.1:8188` (default)
+4. For container workflows: the host may be the container's IP or host machine IP
+
+If `--container` is specified, run file operations via `docker exec`.
 
 ### Step 2: Verify ComfyUI is running
 
 ```bash
-# Check if ComfyUI API is accessible
-curl -s http://127.0.0.1:8188/system_stats | python3 -m json.tool
+# Try the configured server address
+curl -s http://<server_address>/system_stats | python3 -m json.tool
 # Should return system info including GPU device name
 ```
 
-If ComfyUI is not running:
+If not accessible, suggest:
 ```bash
-# Inside container:
-cd /path/to/ComfyUI
-python3 main.py --listen 0.0.0.0 --port 8188 &
-# Wait for "To see the GUI go to: http://..."
+# Check if ComfyUI is running in the container
+docker exec <container> ps aux | grep main.py
+# Start if needed:
+docker exec <container> bash -c "cd /path/to/ComfyUI && python3 main.py --listen 0.0.0.0 --port 8188 &"
 ```
 
 ## Benchmark Execution
@@ -42,11 +58,13 @@ python3 main.py --listen 0.0.0.0 --port 8188 &
 Submit workflow JSON to ComfyUI API and measure wall-clock time:
 
 ```python
-import json, time, urllib.request, urllib.parse
+import json, time, urllib.request, urllib.parse, os
 
-COMFYUI_URL = "http://127.0.0.1:8188"
+COMFYUI_URL = os.environ.get("COMFYUI_URL", "http://127.0.0.1:8188")
+# Override with --server arg if provided
 
-def run_workflow(workflow_json_path, warmup=0, runs=1):
+def run_workflow(workflow_json_path, server_url=None, warmup=0, runs=1):
+    url = server_url or COMFYUI_URL
     """Run a ComfyUI workflow and return e2e times."""
     with open(workflow_json_path) as f:
         workflow = json.load(f)
@@ -56,7 +74,7 @@ def run_workflow(workflow_json_path, warmup=0, runs=1):
     for i in range(warmup + runs):
         # Queue the prompt
         data = json.dumps({"prompt": workflow}).encode('utf-8')
-        req = urllib.request.Request(f"{COMFYUI_URL}/prompt", data=data,
+        req = urllib.request.Request(f"{url}/prompt", data=data,
                                       headers={'Content-Type': 'application/json'})
         resp = json.loads(urllib.request.urlopen(req).read())
         prompt_id = resp['prompt_id']
@@ -65,7 +83,7 @@ def run_workflow(workflow_json_path, warmup=0, runs=1):
         t0 = time.time()
         while True:
             history = json.loads(urllib.request.urlopen(
-                f"{COMFYUI_URL}/history/{prompt_id}").read())
+                f"{url}/history/{prompt_id}").read())
             if prompt_id in history:
                 break
             time.sleep(0.5)
@@ -177,7 +195,7 @@ Use websocket connection for real-time progress monitoring:
 ```python
 import websocket
 ws = websocket.WebSocket()
-ws.connect(f"ws://127.0.0.1:8188/ws?clientId=benchmark")
+ws.connect(f"ws://<server_address>/ws?clientId=benchmark")
 # Listen for progress updates to get per-step timing
 ```
 
