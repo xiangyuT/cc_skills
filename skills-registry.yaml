@@ -1,0 +1,33 @@
+# Skills Registry - External Skill Sources
+#
+# Define external repositories that contain Claude Code skills (commands).
+# Use the `import-skills` command to fetch and sync skills from these sources.
+#
+# Format:
+#   - name: <short_name>            # Unique identifier for this source
+#     repo: <github_url>            # Git repository URL
+#     branch: <branch>              # Branch to pull from (default: main)
+#     path: <commands_path>         # Path to commands directory in the repo (default: commands)
+#     includes:                     # Optional: only import specific files (glob patterns)
+#       - "*.md"
+#     excludes:                     # Optional: skip specific files
+#       - "internal-*.md"
+#     prefix: <prefix>              # Optional: add prefix to imported command filenames
+#
+# Example:
+#
+# sources:
+#   - name: pti-skills
+#     repo: https://github.com/example/pti-skills.git
+#     branch: main
+#     path: commands
+#     prefix: pti-
+#
+#   - name: team-tools
+#     repo: https://github.com/example/team-tools.git
+#     path: .claude/commands
+#     includes:
+#       - "debug-*.md"
+#       - "perf-*.md"
+
+sources: []
