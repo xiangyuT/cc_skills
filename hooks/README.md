@@ -49,8 +49,58 @@ Add hook entries to your project's `.claude/settings.json` (project-level) or `~
         ]
       }
     ],
+    // Notify when Claude Code needs user input (e.g. permission prompts)
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/path/to/cc_skills/hooks/notify-teams.sh '🔔 Needs Attention' '$CLAUDE_NOTIFICATION'"
+          }
+        ]
+      }
+    ],
     // Notify on subcommand errors
     "PostToolUse": []
+  }
+}
+```
+
+### Recommended: minimal notification (Stop + Notification only)
+
+If you want to **minimize noise** and only be notified when it truly matters, use only `Stop` and `Notification`:
+
+- **`Stop`** — notifies you when the task finishes (success or failure).
+- **`Notification`** — notifies you when Claude Code is waiting for user input (e.g. permission prompts, confirmations). This is essential if you step away from the terminal.
+
+> **Tip:** Avoid adding `PreToolUse` / `PostToolUse` for notifications — they fire on every tool invocation and generate significant noise.
+
+```jsonc
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "TEAMS_NOTIFY_EXIT_CODE=$EXIT_CODE /path/to/cc_skills/hooks/notify-teams.sh '🔔 Session Ended'"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/path/to/cc_skills/hooks/notify-teams.sh '⏳ Waiting for Input' '$CLAUDE_NOTIFICATION'"
+          }
+        ]
+      }
+    ]
   }
 }
 ```
@@ -97,7 +147,8 @@ Expected output: `Teams notification sent successfully (HTTP 202).`
 |---------------------|-------------|
 | `TEAMS_WEBHOOK_URL` | **(required)** Power Automate workflow webhook URL |
 | `TEAMS_NOTIFY_EXIT_CODE` | Optional exit code to include in the notification |
-| `CLAUDE_HOOK_EVENT` | Automatically set by Claude Code (e.g. `Stop`, `PostToolUse`) |
+| `CLAUDE_HOOK_EVENT` | Automatically set by Claude Code (e.g. `Stop`, `PostToolUse`, `Notification`) |
+| `CLAUDE_NOTIFICATION` | Automatically set by Claude Code for `Notification` events — the notification message |
 | `CLAUDE_PROJECT_DIR` | Automatically set by Claude Code — current project path |
 | `CLAUDE_SESSION_ID` | Automatically set by Claude Code — session identifier |
 
