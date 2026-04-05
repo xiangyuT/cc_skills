@@ -1,33 +1,41 @@
 # Skills Registry - External Skill Sources
 #
-# Define external repositories that contain Claude Code skills (commands).
-# Use the `import-skills` command to fetch and sync skills from these sources.
+# Define external repositories that contain Claude Code skills or commands.
+# Use the `/import-skills` command to fetch and sync skills from these sources.
 #
 # Format:
 #   - name: <short_name>            # Unique identifier for this source
 #     repo: <github_url>            # Git repository URL
 #     branch: <branch>              # Branch to pull from (default: main)
-#     path: <commands_path>         # Path to commands directory in the repo (default: commands)
-#     includes:                     # Optional: only import specific files (glob patterns)
+#     type: <commands|skills>       # Layout type (default: commands)
+#                                   #   commands — flat .md files (e.g. commands/foo.md)
+#                                   #   skills   — directory per skill with SKILL.md (e.g. skills/foo/SKILL.md)
+#     path: <path>                  # Path inside the repo (default: commands or skills, based on type)
+#     includes:                     # Optional: only import specific items (glob patterns)
 #       - "*.md"
-#     excludes:                     # Optional: skip specific files
+#     excludes:                     # Optional: skip specific items
 #       - "internal-*.md"
-#     prefix: <prefix>              # Optional: add prefix to imported command filenames
+#     prefix: <prefix>              # Optional: add prefix to imported filenames/directories
 #
-# Example:
+# Two layout types are supported:
 #
-# sources:
-#   - name: pti-skills
-#     repo: https://github.com/example/pti-skills.git
-#     branch: main
-#     path: commands
-#     prefix: pti-
+#   type: commands  (default)
+#     The repo contains flat .md command files.
+#     Imported into: .claude/commands/<prefix><name>.md
 #
-#   - name: team-tools
-#     repo: https://github.com/example/team-tools.git
-#     path: .claude/commands
-#     includes:
-#       - "debug-*.md"
-#       - "perf-*.md"
+#   type: skills
+#     The repo contains skill directories, each with a SKILL.md file.
+#     Imported into: .claude/skills/<prefix><name>/SKILL.md
+#
+# ──────────────────────────────────────────────────────────────────────────────
 
-sources: []
+sources:
+  # ComfyUI custom node development skills by jtydhr88
+  # Provides 9 skills covering V3/V1 node APIs: basics, inputs, outputs,
+  # data types, advanced patterns, lifecycle, frontend, migration, packaging.
+  # Repo: https://github.com/jtydhr88/comfyui-custom-node-skills
+  - name: comfyui-custom-node-skills
+    repo: https://github.com/jtydhr88/comfyui-custom-node-skills.git
+    branch: main
+    type: skills
+    path: skills

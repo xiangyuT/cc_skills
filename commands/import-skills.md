@@ -20,7 +20,31 @@ Parse `$ARGUMENTS` to decide which action to take:
 - **remove-source** (or "unregister", "remove"): Remove an external repo from `skills-registry.yaml`
 - **status**: Show which imported skills are up-to-date vs outdated
 
-If `$ARGUMENTS` also contains a source name (e.g., "import pti-skills"), only operate on that source.
+If `$ARGUMENTS` also contains a source name (e.g., "import comfyui-custom-node-skills"), only operate on that source.
+
+## Supported Layout Types
+
+The registry supports two layout types via the `type` field:
+
+### type: commands (default)
+Flat `.md` command files in a single directory.
+```
+<repo>/<path>/
+  ├── foo.md
+  └── bar.md
+```
+Imported into: `.claude/commands/<prefix><name>.md`
+
+### type: skills
+Skill directories, each containing a `SKILL.md` file (Claude Code skills format).
+```
+<repo>/<path>/
+  ├── skill-a/
+  │   └── SKILL.md
+  └── skill-b/
+      └── SKILL.md
+```
+Imported into: `.claude/skills/<prefix><name>/SKILL.md`
 
 ## Common Setup
 
@@ -55,35 +79,48 @@ For each source in `skills-registry.yaml` (or the specified source):
    fi
    ```
 
-2. Find skill files in the source repo:
+2. Determine the layout type (`type` field, default: `commands`).
+
+3. **If type is `commands`** — find flat `.md` files:
    ```bash
    ls "$CACHE_DIR/<source_name>/<path>"/*.md
    ```
 
-3. Apply include/exclude filters if configured:
-   - `includes`: Only import files matching these glob patterns
-   - `excludes`: Skip files matching these glob patterns
-
-4. Copy matching skill files to `<cc_skills_root>/commands/`:
+   Apply include/exclude filters, then copy:
    ```bash
    for f in <matching_files>; do
      filename="<prefix>$(basename "$f")"
-     cp "$f" <cc_skills_root>/commands/"$filename"
+     cp "$f" .claude/commands/"$filename"
+   done
+   ```
+
+4. **If type is `skills`** — find skill directories (each must contain `SKILL.md`):
+   ```bash
+   for d in "$CACHE_DIR/<source_name>/<path>"/*/; do
+     if [ -f "$d/SKILL.md" ]; then
+       dirname=$(basename "$d")
+       echo "$dirname"
+     fi
+   done
+   ```
+
+   Apply include/exclude filters on directory names, then copy:
+   ```bash
+   mkdir -p .claude/skills
+   for d in <matching_dirs>; do
+     dirname="<prefix>$(basename "$d")"
+     mkdir -p .claude/skills/"$dirname"
+     cp "$CACHE_DIR/<source_name>/<path>/$(basename "$d")/SKILL.md" \
+        .claude/skills/"$dirname"/SKILL.md
    done
    ```
 
 5. Report which skills were imported:
    ```
-   Imported from <source_name>:
-     ✓ <prefix>skill1.md (new)
-     ✓ <prefix>skill2.md (updated)
-     - skill3.md (unchanged, skipped)
-   ```
-
-6. If importing into a project (not the cc_skills repo itself), also copy to `.claude/commands/`:
-   ```bash
-   mkdir -p .claude/commands
-   cp <cc_skills_root>/commands/<imported_files> .claude/commands/
+   Imported from <source_name> (type: <type>):
+     ✓ comfyui-node-basics (new)
+     ✓ comfyui-node-inputs (updated)
+     - comfyui-node-outputs (unchanged, skipped)
    ```
 
 ## Action: List
@@ -92,23 +129,34 @@ For each source in `skills-registry.yaml`:
 
 1. Clone or update from cache (same as import step 1)
 
-2. List available skills with descriptions:
+2. List available skills based on type:
+
+   **If type is `commands`:**
    ```bash
    for f in "$CACHE_DIR/<source_name>/<path>"/*.md; do
-     # Extract description from YAML frontmatter
      desc=$(sed -n '/^---$/,/^---$/{ /^description:/s/^description: *//p }' "$f")
      echo "  $(basename "$f"): $desc"
    done
    ```
 
+   **If type is `skills`:**
+   ```bash
+   for d in "$CACHE_DIR/<source_name>/<path>"/*/; do
+     if [ -f "$d/SKILL.md" ]; then
+       # Extract first heading from SKILL.md as description
+       desc=$(sed -n 's/^# *//p; T; q' "$d/SKILL.md")
+       echo "  $(basename "$d")/: $desc"
+     fi
+   done
+   ```
+
 3. Display output:
    ```
-   Source: <source_name> (<repo_url>)
-     - skill1.md: Description of skill 1
-     - skill2.md: Description of skill 2
-
-   Source: <source_name_2> (<repo_url_2>)
-     - skill3.md: Description of skill 3
+   Source: comfyui-custom-node-skills (type: skills)
+     - comfyui-node-basics/: ComfyUI Node Basics
+     - comfyui-node-inputs/: ComfyUI Node Inputs
+     - comfyui-node-outputs/: ComfyUI Node Outputs
+     ...
    ```
 
 ## Action: Add Source
@@ -116,7 +164,7 @@ For each source in `skills-registry.yaml`:
 Parse `$ARGUMENTS` for the repo URL and optional parameters:
 
 ```
-/import-skills add <repo_url> [--name <name>] [--branch <branch>] [--path <path>] [--prefix <prefix>]
+/import-skills add <repo_url> [--name <name>] [--type <commands|skills>] [--branch <branch>] [--path <path>] [--prefix <prefix>]
 ```
 
 1. Validate the repo URL:
@@ -130,21 +178,27 @@ Parse `$ARGUMENTS` for the repo URL and optional parameters:
    name=$(basename <repo_url> .git)
    ```
 
-3. Check for duplicate names in the registry
+3. Auto-detect type if `--type` is not provided:
+   - Clone the repo to cache, then check the structure:
+     - If `<path>/` contains subdirectories with `SKILL.md` → `type: skills`
+     - If `<path>/` contains flat `.md` files → `type: commands`
 
-4. Append the new source to `skills-registry.yaml`:
+4. Check for duplicate names in the registry
+
+5. Append the new source to `skills-registry.yaml`:
    ```yaml
    sources:
      - name: <name>
        repo: <repo_url>
        branch: <branch>       # default: main
-       path: <path>           # default: commands
+       type: <type>           # default: commands
+       path: <path>           # default: commands or skills based on type
        prefix: <prefix>       # default: empty
    ```
 
-5. Confirm the addition:
+6. Confirm the addition:
    ```
-   ✓ Added source '<name>' (<repo_url>)
+   ✓ Added source '<name>' (type: <type>, <repo_url>)
    Run `/import-skills import <name>` to fetch skills.
    ```
 
@@ -173,24 +227,34 @@ For each source in `skills-registry.yaml`:
    REMOTE=$(git rev-parse FETCH_HEAD)
    ```
 
-2. For each imported skill, check if local copy differs from cache:
+2. Compare imported files/directories with cache based on type:
+
+   **If type is `commands`:**
    ```bash
-   diff <cc_skills_root>/commands/<prefix><skill>.md "$CACHE_DIR/<source_name>/<path>/<skill>.md"
+   diff .claude/commands/<prefix><skill>.md "$CACHE_DIR/<source_name>/<path>/<skill>.md"
+   ```
+
+   **If type is `skills`:**
+   ```bash
+   diff .claude/skills/<prefix><skill>/SKILL.md "$CACHE_DIR/<source_name>/<path>/<skill>/SKILL.md"
    ```
 
 3. Display status:
    ```
-   Source: <source_name>
-     ✓ skill1.md — up-to-date
-     ✗ skill2.md — outdated (remote has changes)
-     ? skill3.md — not imported
+   Source: comfyui-custom-node-skills (type: skills)
+     ✓ comfyui-node-basics — up-to-date
+     ✗ comfyui-node-inputs — outdated (remote has changes)
+     ? comfyui-node-frontend — not imported
    ```
 
 ## Notes
 
-- External skill files are copied, not symlinked, to avoid dependency on the cache
-- The `prefix` option helps avoid filename conflicts between sources (e.g., `pti-debug.md` vs `team-debug.md`)
+- External files are copied, not symlinked, to avoid dependency on the cache
+- The `prefix` option helps avoid naming conflicts between sources
 - Cache directory (`$HOME/.cc_skills_cache/`) can be cleaned with `rm -rf $HOME/.cc_skills_cache`
-- If a skill file already exists and comes from a different source, warn the user before overwriting
+- If a skill already exists and comes from a different source, warn the user before overwriting
 - When adding a new source, verify the repo is accessible before saving to the registry
 - All git operations use `--depth 1` for efficiency
+- The `type` field determines the import layout:
+  - `commands` → `.claude/commands/` (flat `.md` files, used as `/command` in Claude Code)
+  - `skills` → `.claude/skills/` (directories with `SKILL.md`, auto-loaded by Claude Code)

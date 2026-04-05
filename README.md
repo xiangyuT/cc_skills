@@ -34,18 +34,24 @@ Then in Claude Code, type `/unitrace <your request>` to invoke.
 ## Integrating Skills from Other Repositories
 
 You can import skills from any external Git repository by registering it in `skills-registry.yaml`.
+Two layout types are supported:
+
+| Type | Repo layout | Imported to | Claude Code usage |
+|------|-------------|-------------|-------------------|
+| `commands` | flat `.md` files (`commands/foo.md`) | `.claude/commands/` | `/foo` slash command |
+| `skills` | directories with `SKILL.md` (`skills/foo/SKILL.md`) | `.claude/skills/` | Auto-loaded context |
 
 ### Quick Start
 
 1. **Register an external source** using the `/import-skills` command:
    ```
-   /import-skills add https://github.com/example/my-skills.git --name my-skills --path commands
+   /import-skills add https://github.com/jtydhr88/comfyui-custom-node-skills.git
    ```
 
 2. **Import skills** from registered sources:
    ```
-   /import-skills import           # import from all sources
-   /import-skills import my-skills # import from a specific source
+   /import-skills import                          # import from all sources
+   /import-skills import comfyui-custom-node-skills  # import from a specific source
    ```
 
 3. **List available skills** from all registered sources:
@@ -58,22 +64,45 @@ You can import skills from any external Git repository by registering it in `ski
    /import-skills status
    ```
 
+### Pre-configured Example
+
+The registry ships with [comfyui-custom-node-skills](https://github.com/jtydhr88/comfyui-custom-node-skills) pre-configured.
+This source provides 9 Claude Code skills for ComfyUI custom node development:
+
+| Skill | Description |
+|-------|-------------|
+| `comfyui-node-basics` | V3 node structure, `io.Schema`, `ComfyExtension` registration |
+| `comfyui-node-inputs` | INT, FLOAT, STRING, BOOLEAN, COMBO, hidden/optional/lazy inputs |
+| `comfyui-node-outputs` | `NodeOutput`, preview helpers, saving files |
+| `comfyui-node-datatypes` | IMAGE, LATENT, MASK, MODEL, CLIP, VAE, AUDIO, custom types |
+| `comfyui-node-advanced` | MatchType, Autogrow, DynamicCombo, `GraphBuilder`, async |
+| `comfyui-node-lifecycle` | `fingerprint_inputs`, `validate_inputs`, execution order |
+| `comfyui-node-frontend` | JS hooks, sidebar tabs, commands, settings, toasts, dialogs |
+| `comfyui-node-migration` | Converting V1 nodes to V3 |
+| `comfyui-node-packaging` | Directory layout, `pyproject.toml`, registry publishing |
+
+Run `/import-skills import comfyui-custom-node-skills` to install them.
+
 ### Manual Configuration
 
 Edit `skills-registry.yaml` directly to add sources:
 
 ```yaml
 sources:
-  - name: pti-skills
-    repo: https://github.com/example/pti-skills.git
+  # Skills layout (directories with SKILL.md)
+  - name: comfyui-custom-node-skills
+    repo: https://github.com/jtydhr88/comfyui-custom-node-skills.git
     branch: main
-    path: commands
-    prefix: pti-           # optional: prefix imported filenames to avoid conflicts
+    type: skills
+    path: skills
 
-  - name: team-tools
-    repo: https://github.com/example/team-tools.git
-    path: .claude/commands
-    includes:              # optional: only import matching files
+  # Commands layout (flat .md files)
+  - name: team-commands
+    repo: https://github.com/example/team-commands.git
+    type: commands
+    path: commands
+    prefix: team-           # optional: prefix imported filenames to avoid conflicts
+    includes:               # optional: only import matching files
       - "debug-*.md"
       - "perf-*.md"
 ```
@@ -85,10 +114,11 @@ sources:
 | `name` | (required) | Unique identifier for this source |
 | `repo` | (required) | Git repository URL |
 | `branch` | `main` | Branch to pull from |
-| `path` | `commands` | Path to commands directory in the external repo |
-| `includes` | all `*.md` | Glob patterns to include |
+| `type` | `commands` | Layout type: `commands` (flat .md) or `skills` (dirs with SKILL.md) |
+| `path` | `commands` or `skills` | Path inside the external repo |
+| `includes` | all | Glob patterns to include |
 | `excludes` | none | Glob patterns to exclude |
-| `prefix` | (empty) | Prefix added to imported filenames |
+| `prefix` | (empty) | Prefix added to imported filenames/directories |
 
 ## Requirements
 
