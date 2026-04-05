@@ -28,6 +28,16 @@ Then in Claude Code, type `/unitrace <your request>` to invoke.
 |---------|-------------|
 | `/unitrace` | Profile Intel GPU applications using unitrace (PTI-GPU). Supports 4 profiling levels: quick summary, timeline, hardware metrics, selective profiling. |
 
+## Hooks
+
+Reusable hook scripts that integrate with Claude Code's lifecycle events.
+
+| Hook | Description |
+|------|-------------|
+| [`notify-teams.sh`](hooks/README.md) | Send notifications to Microsoft Teams via Workflows (Power Automate) webhook. Uses Adaptive Card format (replaces retired O365 Connector). |
+
+Set `TEAMS_WEBHOOK_URL` and configure hooks in `.claude/settings.json` — see [`hooks/README.md`](hooks/README.md) for details.
+
 ## Requirements
 
 - Intel oneAPI toolkit (icpx, Level Zero)
