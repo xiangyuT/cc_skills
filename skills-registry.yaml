@@ -1,0 +1,41 @@
+# Skills Registry - External Skill Sources
+#
+# Define external repositories that contain Claude Code skills or commands.
+# Use the `/import-skills` command to fetch and sync skills from these sources.
+#
+# Format:
+#   - name: <short_name>            # Unique identifier for this source
+#     repo: <github_url>            # Git repository URL
+#     branch: <branch>              # Branch to pull from (default: main)
+#     type: <commands|skills>       # Layout type (default: commands)
+#                                   #   commands — flat .md files (e.g. commands/foo.md)
+#                                   #   skills   — directory per skill with SKILL.md (e.g. skills/foo/SKILL.md)
+#     path: <path>                  # Path inside the repo (default: commands or skills, based on type)
+#     includes:                     # Optional: only import specific items (glob patterns)
+#       - "*.md"
+#     excludes:                     # Optional: skip specific items
+#       - "internal-*.md"
+#     prefix: <prefix>              # Optional: add prefix to imported filenames/directories
+#
+# Two layout types are supported:
+#
+#   type: commands  (default)
+#     The repo contains flat .md command files.
+#     Imported into: .claude/commands/<prefix><name>.md
+#
+#   type: skills
+#     The repo contains skill directories, each with a SKILL.md file.
+#     Imported into: .claude/skills/<prefix><name>/SKILL.md
+#
+# ──────────────────────────────────────────────────────────────────────────────
+
+sources:
+  # ComfyUI custom node development skills by jtydhr88
+  # Provides 9 skills covering V3/V1 node APIs: basics, inputs, outputs,
+  # data types, advanced patterns, lifecycle, frontend, migration, packaging.
+  # Repo: https://github.com/jtydhr88/comfyui-custom-node-skills
+  - name: comfyui-custom-node-skills
+    repo: https://github.com/jtydhr88/comfyui-custom-node-skills.git
+    branch: main
+    type: skills
+    path: skills
