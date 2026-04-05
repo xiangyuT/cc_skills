@@ -27,6 +27,7 @@ Then in Claude Code, type `/unitrace <your request>` to invoke.
 | Command | Description |
 |---------|-------------|
 | `/unitrace` | Profile Intel GPU applications using unitrace (PTI-GPU). Supports 4 profiling levels: quick summary, timeline, hardware metrics, selective profiling. |
+| `/setup-hooks` | Install, update, or remove Claude Code hooks (e.g. Teams notifications) in `settings.json` — no manual JSON editing needed. |
 
 ## Hooks
 
@@ -37,6 +38,8 @@ Reusable hook scripts that integrate with Claude Code's lifecycle events.
 | [`notify-teams.sh`](hooks/README.md) | Send notifications to Microsoft Teams via Workflows (Power Automate) webhook. Uses Adaptive Card format (replaces retired O365 Connector). |
 
 Set `TEAMS_WEBHOOK_URL` and configure hooks in `.claude/settings.json` — see [`hooks/README.md`](hooks/README.md) for details.
+
+> **Tip:** Use `/setup-hooks enable` to configure hooks automatically — no manual JSON editing needed.
 
 ## Requirements
 

@@ -30,6 +30,15 @@ export TEAMS_WEBHOOK_URL="https://prod-xx.westus.logic.azure.com:443/workflows/.
 
 ## Step 3: Configure Claude Code Hooks
 
+> **Recommended:** Use the `/setup-hooks` skill to configure hooks automatically:
+> ```
+> /setup-hooks enable
+> /setup-hooks enable --global
+> ```
+> This writes the correct JSON to your `settings.json` without manual editing. See below for the manual approach.
+
+### Manual Configuration
+
 Add hook entries to your project's `.claude/settings.json` (project-level) or `~/.claude/settings.json` (global):
 
 ```jsonc
