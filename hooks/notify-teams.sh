@@ -30,6 +30,7 @@ BODY="${2:-}"
 # Build contextual info from Claude Code hook env vars (if available)
 HOOK_EVENT="${CLAUDE_HOOK_EVENT:-unknown}"
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+HOSTNAME="$(hostname)"
 SESSION_ID="${CLAUDE_SESSION_ID:-N/A}"
 EXIT_CODE="${TEAMS_NOTIFY_EXIT_CODE:-}"
 
@@ -72,9 +73,10 @@ print(json.dumps({
     'message': sys.argv[2],
     'event': sys.argv[3],
     'project': sys.argv[4],
-    'timestamp': sys.argv[5]
+    'timestamp': sys.argv[5],
+    'host': sys.argv[6]
 }))
-" "$TITLE" "$BODY" "$HOOK_EVENT" "$PROJECT_DIR" "$TIMESTAMP")
+" "$TITLE" "$BODY" "$HOOK_EVENT" "$PROJECT_DIR" "$TIMESTAMP" "$HOSTNAME")
 
 # ── Send to Teams ────────────────────────────────────────────────────────────
 
