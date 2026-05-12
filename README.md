@@ -7,6 +7,7 @@ Reusable Claude Code skills and hooks for Intel XPU / GPU development.
 ```
 cc_skills/
 ├── commands/               # Slash command skills (.md)
+├── skills/                 # In-repo skills (directories with SKILL.md)
 ├── hooks/                  # Hook scripts (.sh)
 ├── skills-registry.yaml    # External skill sources
 └── README.md
@@ -61,6 +62,18 @@ chmod +x .claude/hooks/*
 | `notify-teams.sh` | Stop / Notification | Send notifications to Microsoft Teams via Power Automate webhook. |
 
 Use `/setup-hooks enable <hook>` to configure, or see [hooks/README.md](hooks/README.md) for manual setup.
+
+## In-Repo Skills (methodology)
+
+Skills under [`skills/`](skills/) distill design methodology from
+Intel-XPU kernel work. **Kernel source and performance numbers are
+intentionally excluded** — what's here is the *why* (patterns,
+pitfalls, decision criteria) that transfers across projects.
+
+See [skills/README.md](skills/README.md) for the catalog.
+
+Import into your project via `/import-skills` (the registry section
+below) or by copying the relevant subdir into your `.claude/skills/`.
 
 ## External Skills Integration
 
