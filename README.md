@@ -15,21 +15,33 @@ cc_skills/
 
 ## Usage
 
-### Quick Start
+### Bootstrap a new workspace (Claude-driven)
 
-Use `/sync-skills pull` to sync commands and hooks:
+In a fresh Claude Code session, tell Claude:
+
+> "按 cc_skills 的 BOOTSTRAP.md 初始化这个 workspace"
+
+or point it at the file explicitly: *"读一下
+`$HOME/xiangyu/cc_skills/BOOTSTRAP.md` 然后按步骤装好"*.
+
+Claude walks through the steps in [BOOTSTRAP.md](BOOTSTRAP.md):
+clone/pull cc_skills → copy commands, skills, hook scripts →
+ask which hooks to activate → run `/setup-hooks enable <name>`
+accordingly → verify. The bootstrap asks before writing
+`settings.local.json` and before pulling external skills.
+
+### Ongoing sync
+
+Once bootstrapped, use the slash commands:
 
 ```
-/sync-skills pull
+/sync-skills pull       # pull latest files from cc_skills
+/sync-skills push       # push new/modified files back to cc_skills
+/setup-hooks status     # which hooks are active in this workspace
+/import-skills import   # pull third-party skills registered in skills-registry.yaml
 ```
 
-Use `/import-skills` to import from external repos:
-
-```
-/import-skills import
-```
-
-### Manual Setup
+### Manual setup (fallback if scripts unavailable)
 
 ```bash
 # Commands
@@ -40,7 +52,7 @@ cp /path/to/cc_skills/commands/*.md .claude/commands/
 mkdir -p .claude/skills
 cp -r /path/to/cc_skills/skills/* .claude/skills/
 
-# Hooks
+# Hooks (copy scripts; activation is separate)
 mkdir -p .claude/hooks
 cp /path/to/cc_skills/hooks/*.sh .claude/hooks/
 chmod +x .claude/hooks/*

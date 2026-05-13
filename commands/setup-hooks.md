@@ -29,6 +29,9 @@ If no hook type is specified, show available hooks and ask which to install.
 | `teams` | Stop + Notification | `notify-teams.sh` | Teams notifications (recommended minimal) |
 | `teams-full` | Stop + Notification + PreToolUse + PostToolUse | `notify-teams.sh` | Full Teams notifications (verbose) |
 | `review-push` | PreToolUse (git push) | `review-push-hook.sh` | Block push if performance data detected |
+| `gh-write-scope` | PreToolUse (Bash) | `gh-write-scope-hook.sh` | Block `gh` writes outside `xiangyuT/*` repos (reads allowed). Pairs with `recent-works-kanban` skill. |
+| `git-push-scope` | PreToolUse (Bash, `git push*`) | `git-push-scope-hook.sh` | Block `git push` to remotes whose owner isn't `xiangyuT`. |
+| `kanban-scope` | — (alias) | both above | Convenience alias: enables `gh-write-scope` + `git-push-scope` together. Use when activating the kanban workflow. |
 
 ## Common Setup
 
@@ -134,6 +137,57 @@ Same as `teams` but also add PreToolUse and PostToolUse entries. Warn about high
    }
    ```
 
+### Enable `gh-write-scope`
+
+1. Copy `gh-write-scope-hook.sh` to `.claude/hooks/`:
+   ```bash
+   mkdir -p .claude/hooks
+   cp "$CC_SKILLS_PATH/hooks/gh-write-scope-hook.sh" .claude/hooks/
+   chmod +x .claude/hooks/gh-write-scope-hook.sh
+   ```
+
+2. Add under the `PreToolUse` → matcher `"Bash"` entry (no `if:` — the hook inspects the command itself):
+   ```json
+   {
+     "matcher": "Bash",
+     "hooks": [{
+       "type": "command",
+       "command": "bash .claude/hooks/gh-write-scope-hook.sh",
+       "timeout": 10,
+       "statusMessage": "Checking gh write scope..."
+     }]
+   }
+   ```
+
+### Enable `git-push-scope`
+
+1. Copy `git-push-scope-hook.sh` to `.claude/hooks/`:
+   ```bash
+   mkdir -p .claude/hooks
+   cp "$CC_SKILLS_PATH/hooks/git-push-scope-hook.sh" .claude/hooks/
+   chmod +x .claude/hooks/git-push-scope-hook.sh
+   ```
+
+2. Add PreToolUse hook entry (gated to `git push*`):
+   ```json
+   {
+     "matcher": "Bash",
+     "hooks": [{
+       "type": "command",
+       "command": "bash .claude/hooks/git-push-scope-hook.sh",
+       "if": "Bash(git push*)",
+       "timeout": 10,
+       "statusMessage": "Checking git push target owner..."
+     }]
+   }
+   ```
+
+### Enable `kanban-scope` (alias)
+
+Enables both `gh-write-scope` and `git-push-scope` in a single action.
+Run the steps under each of those sections. This is the recommended
+minimum when activating the `recent-works-kanban` skill in a workspace.
+
 ## Action: Disable
 
 1. Read settings file
@@ -173,6 +227,34 @@ If hook references a script that doesn't exist on disk, warn the user.
 ```bash
 echo '{"tool_name":"Bash","tool_input":{"command":"git push"}}' | bash .claude/hooks/review-push-hook.sh
 echo "Exit code: $?"
+```
+
+### Test gh-write-scope
+
+```bash
+# Allowed (reads):
+echo '{"tool_name":"Bash","tool_input":{"command":"gh issue list --repo intel/llm-scaler"}}' \
+  | bash .claude/hooks/gh-write-scope-hook.sh
+echo "Exit: $?"   # expect 0
+
+# Blocked (write on non-xiangyuT):
+echo '{"tool_name":"Bash","tool_input":{"command":"gh issue comment 123 --repo intel/llm-scaler --body hi"}}' \
+  | bash .claude/hooks/gh-write-scope-hook.sh
+echo "Exit: $?"   # expect 2
+
+# Allowed (write on xiangyuT):
+echo '{"tool_name":"Bash","tool_input":{"command":"gh issue edit 14 --repo xiangyuT/recent_works --add-label foo"}}' \
+  | bash .claude/hooks/gh-write-scope-hook.sh
+echo "Exit: $?"   # expect 0
+```
+
+### Test git-push-scope
+
+```bash
+# Blocked:
+echo '{"tool_name":"Bash","tool_input":{"command":"git push intel-origin main"}}' \
+  | bash .claude/hooks/git-push-scope-hook.sh
+echo "Exit: $?"   # expect 2 if the remote URL owner isn't xiangyuT
 ```
 
 ## Notes
