@@ -22,19 +22,24 @@ Parse `$ARGUMENTS` to decide which action to take:
 
 By default, sync ALL resource types. If `$ARGUMENTS` specifies a scope, only sync that:
 
-- `commands` or `skills`: only `.claude/commands/*.md`
+- `commands`: only `.claude/commands/*.md`
+- `skills`: only `.claude/skills/<name>/` directories (each containing `SKILL.md`)
 - `hooks`: only `.claude/hooks/*`
-- A specific name (e.g., "push unitrace"): only that one file
+- A specific name (e.g., "push unitrace"): only that one resource
 
 ## Repo Structure
 
 ```
 cc_skills/
-├── commands/           # Slash command skills (.md)
+├── commands/                       # Slash command skills (flat .md)
 │   ├── unitrace.md
 │   ├── review-push.md
 │   └── ...
-├── hooks/              # Hook scripts (.sh)
+├── skills/                         # Directory-based skills (each with SKILL.md)
+│   ├── recent-works-kanban/
+│   │   └── SKILL.md
+│   └── ...
+├── hooks/                          # Hook scripts (.sh)
 │   ├── review-push-hook.sh
 │   └── ...
 └── README.md
@@ -65,7 +70,21 @@ for f in <cc_skills_path>/commands/*.md; do
 done
 ```
 
-### 2. Sync Hooks
+### 2. Sync Skills
+
+```bash
+mkdir -p .claude/skills
+for d in <cc_skills_path>/skills/*/; do
+  name=$(basename "$d")
+  mkdir -p ".claude/skills/$name"
+  # Copy SKILL.md and any sibling files (diagrams, templates, etc.)
+  cp -r "$d"/* ".claude/skills/$name/"
+done
+```
+
+Skills are directory-based: each `.claude/skills/<name>/` contains `SKILL.md` plus any supporting files (templates, images, sub-modules). Unlike commands, skills trigger automatically via their `description:` frontmatter matching the user's request — no `/slash` invocation needed.
+
+### 3. Sync Hooks
 
 ```bash
 mkdir -p .claude/hooks
@@ -77,10 +96,11 @@ done
 
 After copying hooks, check if the project's `.claude/settings.local.json` (or `.claude/settings.json`) has the corresponding hook entries configured. If a hook script exists but no matching hook config is found in settings, **warn the user** and show the suggested config snippet. Do NOT auto-modify settings.json — hooks need user review before activation.
 
-### 3. Report
+### 4. Report
 
 Report what was synced:
 - Commands: N synced (list names)
+- Skills: N synced (list names)
 - Hooks: N synced (list names), M need hook config
 
 ## Action: Push (project -> repo)
@@ -97,7 +117,20 @@ Report what was synced:
    ```
 3. If the command is new, update `<cc_skills_path>/README.md` Available Commands table
 
-### 2. Push Hooks
+### 2. Push Skills
+
+1. Identify new/modified `.claude/skills/<name>/` directories:
+   ```bash
+   diff -r .claude/skills/<name>/ <cc_skills_path>/skills/<name>/
+   ```
+2. Copy changed skill directories to repo:
+   ```bash
+   mkdir -p <cc_skills_path>/skills/<name>
+   cp -r .claude/skills/<name>/* <cc_skills_path>/skills/<name>/
+   ```
+3. If the skill is new, update `<cc_skills_path>/README.md` with a row in the Available Skills table
+
+### 3. Push Hooks
 
 1. Identify new/modified `.claude/hooks/*` files:
    ```bash
@@ -109,7 +142,7 @@ Report what was synced:
    cp .claude/hooks/<name> <cc_skills_path>/hooks/<name>
    ```
 
-### 3. Commit and Push
+### 4. Commit and Push
 
 ```bash
 cd <cc_skills_path>
@@ -130,12 +163,16 @@ Commands:
   /review-push       - Review git push diff for performance data
   ...
 
+Skills:
+  recent-works-kanban - Maintain xiangyuT's GitHub Projects v2 kanban
+  ...
+
 Hooks:
   review-push-hook.sh - Pre-push performance data scanner
   ...
 ```
 
-Read the `description` from frontmatter (commands) or the first comment line (hooks/snippets).
+Read the `description` from frontmatter (commands & skills `SKILL.md`) or the first comment line (hooks/snippets).
 
 ## Notes
 

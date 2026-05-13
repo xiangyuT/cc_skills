@@ -6,7 +6,7 @@ Reusable Claude Code skills and hooks for Intel XPU / GPU development.
 
 ```
 cc_skills/
-├── commands/               # Slash command skills (.md)
+├── commands/               # Slash command skills (flat .md)
 ├── skills/                 # In-repo skills (directories with SKILL.md)
 ├── hooks/                  # Hook scripts (.sh)
 ├── skills-registry.yaml    # External skill sources
@@ -36,6 +36,10 @@ Use `/import-skills` to import from external repos:
 mkdir -p .claude/commands
 cp /path/to/cc_skills/commands/*.md .claude/commands/
 
+# Skills (directory-based)
+mkdir -p .claude/skills
+cp -r /path/to/cc_skills/skills/* .claude/skills/
+
 # Hooks
 mkdir -p .claude/hooks
 cp /path/to/cc_skills/hooks/*.sh .claude/hooks/
@@ -54,11 +58,19 @@ chmod +x .claude/hooks/*
 | `/setup-hooks` | Install, update, or remove hooks in settings.json — no manual JSON editing. |
 | `/import-skills` | Import skills from external repositories defined in `skills-registry.yaml`. |
 
+## Available Skills
+
+| Skill | Description |
+|-------|-------------|
+| `recent-works-kanban` | Maintain xiangyuT's personal GitHub Projects v2 kanban (vLLM / SGLang / Omni workstreams). Covers issue body style, commit-to-progress sync rules, upstream PR merge handling, deep-investigation artifact layout, and the gh/git write-scope safety rules. |
+
 ## Available Hooks
 
 | Hook | Event | Description |
 |------|-------|-------------|
 | `review-push-hook.sh` | PreToolUse (git push) | Scan push diff for performance data, block if found. |
+| `gh-write-scope-hook.sh` | PreToolUse (Bash) | Block `gh` writes (issue/pr/release/api mutations) on repos outside `xiangyuT/*`. Reads on any repo still allowed. Pairs with `recent-works-kanban` skill. |
+| `git-push-scope-hook.sh` | PreToolUse (Bash) | Block `git push` to remotes whose URL owner isn't `xiangyuT`. Pairs with `recent-works-kanban` skill. |
 | `notify-teams.sh` | Stop / Notification | Send notifications to Microsoft Teams via Power Automate webhook. |
 
 Use `/setup-hooks enable <hook>` to configure, or see [hooks/README.md](hooks/README.md) for manual setup.
